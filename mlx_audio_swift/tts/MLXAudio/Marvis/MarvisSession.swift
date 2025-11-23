@@ -80,6 +80,25 @@ public final class MarvisSession: Module {
     private var boundRefText: String? = nil
     private var boundQuality: QualityLevel = .maximum
 
+    // Cache for loaded voice contexts to avoid reloading from disk on each generation
+    private var voiceContextCache: [Voice: Segment] = [:]
+
+    // MARK: - Public Voice Control
+
+    /// Sets the voice for subsequent generations
+    public func setVoice(_ voice: Voice) {
+        boundVoice = voice
+        boundRefAudio = nil
+        boundRefText = nil
+    }
+
+    /// Sets a custom reference voice for cloning
+    public func setCustomVoice(refAudio: MLXArray, refText: String) {
+        boundVoice = nil
+        boundRefAudio = refAudio
+        boundRefText = refText
+    }
+
     // MARK: - Public Initializers
 
     public init(
@@ -528,6 +547,11 @@ private extension MarvisSession {
         if let refAudio, let refText {
             return Segment(speaker: 0, text: refText, audio: refAudio)
         } else if let voice {
+            // Check cache first
+            if let cached = voiceContextCache[voice] {
+                return cached
+            }
+
             var refAudioURL: URL?
             for promptURL in _promptURLs ?? [] {
                 if promptURL.lastPathComponent == "\(voice.rawValue).wav" {
@@ -544,7 +568,11 @@ private extension MarvisSession {
             let refTextURL = refAudioURL.deletingPathExtension().appendingPathExtension("txt")
             let text = try String(data: Data(contentsOf: refTextURL), encoding: .utf8)
             guard let text else { throw MarvisTTSError.voiceNotFound }
-            return Segment(speaker: 0, text: text, audio: audio)
+
+            // Cache the segment for this voice
+            let segment = Segment(speaker: 0, text: text, audio: audio)
+            voiceContextCache[voice] = segment
+            return segment
         }
         throw MarvisTTSError.voiceNotFound
     }

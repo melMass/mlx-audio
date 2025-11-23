@@ -201,7 +201,7 @@ public struct MarvisModelArgs: Codable, Sendable {
         tieWordEmbeddings: Bool,
         useCache: Bool,
         vocabSize: Int,
-        quantization: [String: JSONValue]?,
+        quantization: [String: JSONValue]?
     ) {
         self.modelType = modelType
         self.backboneFlavor = backboneFlavor
